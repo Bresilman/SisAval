@@ -35,6 +35,13 @@ class DataToolsSubTab(ttk.Frame):
         fr_clean.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
         ttk.Button(fr_clean, text="Remover Outliers (> 2σ)", command=self.sanear_automatico).pack(fill='x', pady=10)
 
+        # --- Section 5: Inteligência de Mercado (NEW) ---
+        fr_intel = ttk.LabelFrame(self, text="🧠 Inteligência de Mercado", padding=15)
+        fr_intel.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=10, pady=10)
+        
+        ttk.Label(fr_intel, text="Usa o Banco de Dados Histórico para criar variáveis de localização.").pack(anchor='w')
+        ttk.Button(fr_intel, text="Criar Variável: Valor Médio do Bairro", command=self.controller.acao_enriquecer_bairros).pack(fill='x', pady=5)
+
     def abrir_transformador(self):
         t = Toplevel(self); t.title("Transformar"); t.geometry("300x250")
         cols = self.controller.data_handler.get_numeric_columns()

@@ -16,6 +16,8 @@ from app.ui.tabs.tab_map import MapTab
 from app.ui.tabs.tab_databank import DatabankTab # NOVO
 from app.ui.tabs.tab_report import ReportTab
 from app.ui.tabs.tab_scraper import ScraperTab
+from app.ui.tabs.tab_google import GoogleTab
+from app.ui.tabs.tab_urban import UrbanTab
 
 class MainWindow(tk.Tk):
     def __init__(self, controller):
@@ -96,5 +98,14 @@ class MainWindow(tk.Tk):
         self.tab_settings = SettingsTab(self.notebook, self.controller)
         self.notebook.add(self.tab_settings, text="⚙️ Configurações")
 
+        # 12. Relatório PDF
         self.tab_report = ReportTab(self.notebook, self.controller)
         self.notebook.add(self.tab_report, text="12. Relatório PDF")
+
+        # 13. Google Geo
+        self.tab_google = GoogleTab(self.notebook, self.controller)
+        self.notebook.add(self.tab_google, text="13. Google Geo")
+
+        # 14. Análise Urbana
+        self.tab_urban = UrbanTab(self.notebook, self.controller)
+        self.notebook.add(self.tab_urban, text="14. Análise Urbana")
