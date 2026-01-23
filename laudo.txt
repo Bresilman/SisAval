@@ -1,0 +1,39 @@
+TÍTULO: Laudo de Avaliação de Imóvel Urbano
+AVALIADOR: 
+============================================================
+
+MEMORIAL DE AVALIAÇÃO ESTATÍSTICA (NBR 14.653)
+============================================================
+
+1. IDENTIFICAÇÃO
+Data de Emissão: 19 de January de 2026
+Software: SisAval (Engine Python/Statsmodels)
+
+2. DADOS DA AMOSTRA
+Elementos pesquisados: 50
+Modelo: Regressão Linear Múltipla (Escala Natural).
+
+3. DIAGNÓSTICO DO MODELO
+- Determinação (R²): 0.7926 (Moderada explicação da variância).
+- Correlação (R): 0.8903
+- Significância (Teste F): 9.51e-16 (Aprovado)
+- Normalidade (Shapiro-Wilk): 0.1290 (Resíduos Normais)
+- Homocedasticidade (Breusch-Pagan): 0.1119 (Variância Constante)
+- Autocorrelação (Durbin-Watson): 1.97 (Sem autocorrelação - Bom)
+
+4. ANÁLISE ECONÔMICA DAS VARIÁVEIS
+4.1 Grau de Influência (Importância Relativa):
+   - Frente: 51.5%
+   - Area: 26.4%
+   - Profundidade: 22.1%
+   Interpretação: As variáveis no topo da lista são as determinantes principais do valor de mercado.
+
+4.2 Elasticidade (Variação da Função):
+   Representa a variação percentual no preço para cada 1% de variação na característica.
+   - Area: -0.3453 (Desvalorização)
+   - Frente: 0.6219 (Valorização)
+   - Profundidade: 0.1882 (Valorização)
+5. EQUAÇÃO DE ESTIMATIVA
+Unitário = 1439.1383 + (-2.6624 * Area) + (138.9333 * Frente) + (17.1054 * Profundidade)
+
+============================================================

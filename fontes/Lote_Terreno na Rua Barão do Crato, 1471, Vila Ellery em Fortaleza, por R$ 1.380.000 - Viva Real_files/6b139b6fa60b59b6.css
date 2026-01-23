@@ -1,0 +1,1 @@
+.stack{flex-wrap:wrap;width:100%;display:flex}.stack.column{flex-direction:column}.stack.row{flex-direction:row}.stack.small{gap:var(--spacing-1)}.stack.medium{gap:var(--spacing-2)}.stack.large{gap:var(--spacing-4)}
