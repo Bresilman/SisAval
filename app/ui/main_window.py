@@ -1,111 +1,113 @@
 import tkinter as tk
-from tkinter import ttk, Menu, messagebox
-from app.config import settings
+from tkinter import ttk
+import sys
+import os
 
-# Import das Abas Modulares
-from app.ui.tabs.tab_data import DataTab
+# Adiciona o diretório raiz ao path para garantir que as importações funcionem
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
+# Importação das Abas (Views)
+# FIX: Corrected import from DataTab to TabData
+from app.ui.tabs.tab_data import TabData
+from app.ui.tabs.tab_map import MapTab
+from app.ui.tabs.tab_factors import FactorsTab
 from app.ui.tabs.tab_regression import RegressionTab
+from app.ui.tabs.tab_plots import PlotsTab
 from app.ui.tabs.tab_validation import ValidationTab
 from app.ui.tabs.tab_calculator import CalculatorTab
-from app.ui.tabs.tab_optimizer import OptimizerTab
-from app.ui.tabs.tab_evolutionary import EvolutionaryTab
-from app.ui.tabs.tab_settings import SettingsTab
-from app.ui.tabs.tab_plots import PlotsTab
-from app.ui.tabs.tab_factors import FactorsTab
-from app.ui.tabs.tab_map import MapTab
-from app.ui.tabs.tab_databank import DatabankTab # NOVO
 from app.ui.tabs.tab_report import ReportTab
+from app.ui.tabs.tab_settings import SettingsTab
 from app.ui.tabs.tab_scraper import ScraperTab
-from app.ui.tabs.tab_google import GoogleTab
+from app.ui.tabs.tab_databank import DatabankTab
+from app.ui.tabs.tab_evolutionary import EvolutionaryTab
+from app.ui.tabs.tab_optimizer import OptimizerTab
 from app.ui.tabs.tab_urban import UrbanTab
+from app.ui.tabs.tab_google import GoogleTab
 
 class MainWindow(tk.Tk):
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
-        self.title(settings.APP_TITLE)
-        self.geometry(settings.APP_SIZE)
-        self._setup_menu() # Menu Superior
-        self._setup_ui()
+        self.title("SisAval - Sistema de Avaliação de Imóveis (Alpha)")
+        self.geometry("1400x900")
+        
+        # Configuração de Estilo (Tema)
+        style = ttk.Style(self)
+        style.theme_use('clam') 
+        
+        self.setup_ui()
 
-    def _setup_menu(self):
-        menubar = Menu(self)
-        self.config(menu=menubar)
+    def setup_ui(self):
+        # Container Principal
+        main_container = ttk.Frame(self)
+        main_container.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Menu Arquivo
-        file_menu = Menu(menubar, tearoff=0)
-        file_menu.add_command(label="📂 Abrir Projeto", command=self.controller.acao_abrir_projeto)
-        file_menu.add_command(label="💾 Salvar Projeto", command=self.controller.acao_salvar_projeto)
-        file_menu.add_separator()
-        file_menu.add_command(label="Sair", command=self.quit)
-        menubar.add_cascade(label="Arquivo", menu=file_menu)
+        # Notebook (Abas)
+        self.notebook = ttk.Notebook(main_container)
+        self.notebook.pack(fill="both", expand=True)
 
-        # Menu Ajuda
-        help_menu = Menu(menubar, tearoff=0)
-        help_menu.add_command(label="Sobre", command=lambda: messagebox.showinfo("Sobre", "SisAval - Avaliação de Imóveis\nVersão 1.0"))
-        menubar.add_cascade(label="Ajuda", menu=help_menu)
-
-    def _setup_ui(self):
-        # Notebook Principal
-        self.notebook = ttk.Notebook(self)
-        self.notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        # 1. Aba de Dados
-        self.tab_data = DataTab(self.notebook, self.controller)
+        # --- Inicialização das Abas ---
+        
+        # 1. Dados (Data Tab)
+        # FIX: Instantiating TabData instead of DataTab
+        self.tab_data = TabData(self.notebook, self.controller)
         self.notebook.add(self.tab_data, text="1. Dados")
 
-        # 2. Aba de Regressão
-        self.tab_regression = RegressionTab(self.notebook, self.controller)
-        self.notebook.add(self.tab_regression, text="2. Estatística")
-
-        # 3. Aba de Gráficos Detalhados
-        self.tab_plots = PlotsTab(self.notebook, self.controller)
-        self.notebook.add(self.tab_plots, text="3. Gráficos")
-
-        # 4. Aba de Validação
-        self.tab_validation = ValidationTab(self.notebook)
-        self.notebook.add(self.tab_validation, text="4. Validação NBR")
-
-        # 5. Aba Otimizador
-        self.tab_optimizer = OptimizerTab(self.notebook, self.controller)
-        self.notebook.add(self.tab_optimizer, text="5. Otimizador")
-
-        # 6. Aba Calculadora
-        self.tab_calculator = CalculatorTab(self.notebook, self.controller)
-        self.notebook.add(self.tab_calculator, text="6. Calculadora")
-
-        # 7. Aba Evolutiva
-        self.tab_evolutionary = EvolutionaryTab(self.notebook, self.controller)
-        self.notebook.add(self.tab_evolutionary, text="7. Evolutivo")
-        
-        # 8. Aba Fatores
-        self.tab_factors = FactorsTab(self.notebook, self.controller)
-        self.notebook.add(self.tab_factors, text="8. Fatores")
-
-        # 9. Aba Mapa
+        # 2. Mapa (Map Tab)
         self.tab_map = MapTab(self.notebook, self.controller)
-        self.notebook.add(self.tab_map, text="9. Mapa")
-        
-        # 10. Databank
-        self.tab_databank = DatabankTab(self.notebook, self.controller)
-        self.notebook.add(self.tab_databank, text="10. Banco de Dados")
+        self.notebook.add(self.tab_map, text="2. Mapa")
 
-        # 11. Scraper (NEW)
-        self.tab_scraper = ScraperTab(self.notebook, self.controller)
-        self.notebook.add(self.tab_scraper, text="11. Web Scraper")
+        # 3. Fatores (Factors Tab)
+        self.tab_factors = FactorsTab(self.notebook, self.controller)
+        self.notebook.add(self.tab_factors, text="3. Fatores")
 
-        # 12. Aba Configurações
-        self.tab_settings = SettingsTab(self.notebook, self.controller)
-        self.notebook.add(self.tab_settings, text="⚙️ Configurações")
+        # 4. Regressão (Regression Tab)
+        self.tab_regression = RegressionTab(self.notebook, self.controller)
+        self.notebook.add(self.tab_regression, text="4. Regressão")
 
-        # 12. Relatório PDF
+        # 5. Gráficos (Plots Tab)
+        self.tab_plots = PlotsTab(self.notebook, self.controller)
+        self.notebook.add(self.tab_plots, text="5. Gráficos")
+
+        # 6. Validação (Validation Tab)
+        self.tab_validation = ValidationTab(self.notebook, self.controller)
+        self.notebook.add(self.tab_validation, text="6. Validação")
+
+        # 7. Calculadora (Calculator Tab)
+        self.tab_calculator = CalculatorTab(self.notebook, self.controller)
+        self.notebook.add(self.tab_calculator, text="7. Calculadora")
+
+        # 8. Relatório (Report Tab)
         self.tab_report = ReportTab(self.notebook, self.controller)
-        self.notebook.add(self.tab_report, text="12. Relatório PDF")
+        self.notebook.add(self.tab_report, text="8. Relatório")
 
-        # 13. Google Geo
-        self.tab_google = GoogleTab(self.notebook, self.controller)
-        self.notebook.add(self.tab_google, text="13. Google Geo")
+        # --- Abas Extras/Ferramentas ---
+        
+        self.tab_scraper = ScraperTab(self.notebook, controller=self.controller)
+        self.notebook.add(self.tab_scraper, text="Scraper")
 
-        # 14. Análise Urbana
+        self.tab_databank = DatabankTab(self.notebook, self.controller)
+        self.notebook.add(self.tab_databank, text="Banco de Dados")
+
+        self.tab_evolutionary = EvolutionaryTab(self.notebook, self.controller)
+        self.notebook.add(self.tab_evolutionary, text="Algoritmo Genético")
+
+        self.tab_optimizer = OptimizerTab(self.notebook, self.controller)
+        self.notebook.add(self.tab_optimizer, text="Otimizador")
+        
         self.tab_urban = UrbanTab(self.notebook, self.controller)
-        self.notebook.add(self.tab_urban, text="14. Análise Urbana")
+        self.notebook.add(self.tab_urban, text="Variáveis Urbanas")
+        
+        self.tab_google = GoogleTab(self.notebook, self.controller)
+        self.notebook.add(self.tab_google, text="Google API")
+
+        self.tab_settings = SettingsTab(self.notebook, self.controller)
+        self.notebook.add(self.tab_settings, text="Configurações")
+
+    def show_error(self, message):
+        from tkinter import messagebox
+        messagebox.showerror("Erro", message)
+
+    def show_info(self, message):
+        from tkinter import messagebox
+        messagebox.showinfo("Informação", message)

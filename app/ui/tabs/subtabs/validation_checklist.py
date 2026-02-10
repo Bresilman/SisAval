@@ -1,10 +1,18 @@
 import tkinter as tk
 from tkinter import ttk
-from app.config import settings
+try:
+    from app.config import settings
+except ImportError:
+    # Fallback if settings are missing
+    class settings:
+        COLOR_OK = "#d4edda"
+        COLOR_ALERTA = "#fff3cd"
+        COLOR_ERRO = "#f8d7da"
 
-class ValidationChecklistSubTab(ttk.Frame):
-    def __init__(self, parent):
+class ValidationChecklist(ttk.Frame):
+    def __init__(self, parent, controller):
         super().__init__(parent)
+        self.controller = controller
         self._setup_ui()
 
     def _setup_ui(self):
@@ -12,7 +20,7 @@ class ValidationChecklistSubTab(ttk.Frame):
         paned = ttk.PanedWindow(self, orient="vertical")
         paned.pack(fill='both', expand=True)
 
-        # 1. Table
+        # 1. Table Frame
         fr_table = ttk.Frame(paned)
         paned.add(fr_table, weight=3)
 
@@ -26,11 +34,16 @@ class ValidationChecklistSubTab(ttk.Frame):
             self.tree.heading(c, text=h)
             self.tree.column(c, width=w, anchor="center" if c != "item" else "w")
 
+        # Scrollbar for table
+        vsb = ttk.Scrollbar(fr_table, orient="vertical", command=self.tree.yview)
+        vsb.pack(side="right", fill="y")
         self.tree.pack(fill='both', expand=True, padx=5, pady=5)
+        self.tree.configure(yscrollcommand=vsb.set)
 
-        self.tree.tag_configure("OK", background=settings.COLOR_OK)
-        self.tree.tag_configure("ALERTA", background=settings.COLOR_ALERTA)
-        self.tree.tag_configure("ERRO", background=settings.COLOR_ERRO)
+        # Tag configurations for colors
+        self.tree.tag_configure("OK", background=getattr(settings, 'COLOR_OK', '#d4edda'))
+        self.tree.tag_configure("ALERTA", background=getattr(settings, 'COLOR_ALERTA', '#fff3cd'))
+        self.tree.tag_configure("ERRO", background=getattr(settings, 'COLOR_ERRO', '#f8d7da'))
 
         # 2. Educational Panel
         fr_help = ttk.LabelFrame(paned, text="📖 Entendendo os Testes", padding=10)
@@ -59,9 +72,23 @@ class ValidationChecklistSubTab(ttk.Frame):
         self.txt_help.insert("end", explanation)
         self.txt_help.configure(state="disabled")
 
-    def update_data(self, report):
+    def update_status(self, report):
+        """
+        Receives a list of dictionaries with validation results.
+        Expected format: [{'item': 'R²', 'valor': 0.85, 'limite': 0.75, 'status': 'OK', 'msg': 'Bom'}, ...]
+        """
         self.tree.delete(*self.tree.get_children())
+        
+        # If report is None or not a list, handle gracefully
+        if not report or not isinstance(report, list):
+            return
+
         for r in report:
-            self.tree.insert("", "end", values=(
-                r['item'], r['valor'], r['limite'], r['status'], r['msg']
-            ), tags=(r['status'],))
+            # Ensure keys exist to prevent KeyError
+            item = r.get('item', '?')
+            val = r.get('valor', '')
+            lim = r.get('limite', '')
+            stat = r.get('status', 'ALERTA')
+            msg = r.get('msg', '')
+            
+            self.tree.insert("", "end", values=(item, val, lim, stat, msg), tags=(stat,))

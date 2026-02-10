@@ -1,72 +1,62 @@
 import tkinter as tk
 from tkinter import ttk
+from app.controllers.data_controller import DataController
 
 # Import Subtabs
-from app.ui.tabs.subtabs.data_table import DataTableSubTab
-from app.ui.tabs.subtabs.data_model import DataModelSubTab
-from app.ui.tabs.subtabs.data_tools import DataToolsSubTab  # New Import
-from app.ui.tabs.subtabs.data_desc import DataDescSubTab
+from app.ui.tabs.subtabs.data_tools import DataTools
+from app.ui.tabs.subtabs.data_table import DataTable
+from app.ui.tabs.subtabs.data_variables import DataVariables
+from app.ui.tabs.subtabs.data_desc import DataDesc
+from app.ui.tabs.subtabs.data_model import DataModel
 
-class DataTab(ttk.Frame):
+class TabData(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
-        self._setup_ui()
-
-    def _setup_ui(self):
-        # --- TOP PANEL (Global Actions) ---
-        top_frame = ttk.Frame(self, padding=10)
-        top_frame.pack(fill='x')
-
-        # File Buttons
-        fr_file = ttk.Frame(top_frame)
-        fr_file.pack(side='left')
-        ttk.Button(fr_file, text="📂 Carregar Arquivo", command=self.controller.acao_carregar).pack(side='left', padx=2)
-        ttk.Button(fr_file, text="🎲 Dados Exemplo", command=self.controller.acao_exemplo).pack(side='left', padx=2)
         
-        # Calculate Button
-        ttk.Button(top_frame, text="▶ CALCULAR REGRESSÃO", command=self.controller.acao_calcular).pack(side='right', padx=10)
+        # Ensure DataController exists
+        if not hasattr(self.controller, 'data_handler'):
+            self.data_ctrl = DataController(self.controller)
+            self.controller.data_handler = self.data_ctrl
+        else:
+            self.data_ctrl = self.controller.data_handler
+            
+        self.setup_ui()
 
-        # --- MAIN NOTEBOOK ---
+    def setup_ui(self):
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+
+        # 1. GLOBAL TOOLS (Top Bar)
+        # Keeps file operations always visible
+        self.tools = DataTools(self, self.controller)
+        self.tools.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
+
+        # 2. SUBTABS NOTEBOOK (Content Area)
+        # This fixes the "can't see subtabs" issue by giving them dedicated tabs
         self.notebook = ttk.Notebook(self)
-        self.notebook.pack(fill='both', expand=True, padx=5, pady=5)
+        self.notebook.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
-        # 1. Table Subtab
-        self.subtab_table = DataTableSubTab(self.notebook, self.controller)
-        self.notebook.add(self.subtab_table, text="📋 Tabela de Dados")
+        # Initialize Subtabs
+        self.sub_table = DataTable(self.notebook, self.controller)
+        self.sub_variables = DataVariables(self.notebook, self.controller)
+        self.sub_desc = DataDesc(self.notebook, self.controller)
+        self.sub_model = DataModel(self.notebook, self.controller)
 
-        # 2. Variable Definition Subtab
-        self.subtab_model = DataModelSubTab(self.notebook, self.controller)
-        self.notebook.add(self.subtab_model, text="⚙️ Definição de Variáveis")
+        # Add to Notebook
+        self.notebook.add(self.sub_table, text="Tabela de Dados")
+        self.notebook.add(self.sub_variables, text="Variáveis (Modelagem)")
+        self.notebook.add(self.sub_desc, text="Estatística Descritiva")
+        self.notebook.add(self.sub_model, text="Tratamento & Limpeza")
 
-        # 3. Engineering Tools Subtab (NEW)
-        self.subtab_tools = DataToolsSubTab(self.notebook, self.controller)
-        self.notebook.add(self.subtab_tools, text="🛠️ Ferramentas & Engenharia")
+    def refresh_ui(self):
+        """Called internally or externally to reload all views"""
+        self.tools.update_status()
+        self.sub_table.refresh_view()
+        self.sub_variables.refresh_view()
+        self.sub_desc.refresh_view()
+        # self.sub_model.refresh_view() # If implemented
 
-        # 4. Descriptive Statistics Subtab
-        self.subtab_desc = DataDescSubTab(self.notebook)
-        self.notebook.add(self.subtab_desc, text="📊 Estatística Descritiva")
-
-    def update_table(self, df, numeric_cols):
-        # Distribute updates to subtabs
-        self.subtab_table.update_data(df)
-        self.subtab_model.update_selectors(numeric_cols)
-        self.subtab_desc.calculate_desc(df, numeric_cols)
-
-    # --- PROXY PROPERTIES (Compatible with Controller) ---
-    @property
-    def combo_y(self):
-        return self.subtab_model.combo_y
-    
-    @property
-    def listbox_x(self):
-        return self.subtab_model.listbox_x
-    
-    @property
-    def var_log_global(self):
-        # Now pointing to the tools subtab
-        return self.subtab_tools.var_log_global
-    
-    @property
-    def tree(self):
-        return self.subtab_table.tree
+    # API for StatsController
+    def get_selected_variables(self):
+        return self.sub_variables.get_selection()

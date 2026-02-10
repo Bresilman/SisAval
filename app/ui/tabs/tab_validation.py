@@ -1,38 +1,38 @@
 import tkinter as tk
 from tkinter import ttk
-from app.ui.tabs.subtabs.validation_checklist import ValidationChecklistSubTab
-from app.ui.tabs.subtabs.validation_scoring import ValidationScoringSubTab
-from app.ui.tabs.subtabs.validation_precision import ValidationPrecisionSubTab
+
+# FIX: Correct imports pointing to the actual filenames and class names (PascalCase)
+from app.ui.tabs.subtabs.validation_checklist import ValidationChecklist
+from app.ui.tabs.subtabs.validation_precision import ValidationPrecision
+from app.ui.tabs.subtabs.validation_scoring import ValidationScoring
 
 class ValidationTab(ttk.Frame):
-    def __init__(self, parent):
+    def __init__(self, parent, controller):
         super().__init__(parent)
-        self._setup_ui()
+        self.controller = controller
+        self.setup_ui()
 
-    def _setup_ui(self):
-        # Notebook for Sub-tabs
+    def setup_ui(self):
         self.notebook = ttk.Notebook(self)
-        self.notebook.pack(fill='both', expand=True, padx=5, pady=5)
+        self.notebook.pack(fill='both', expand=True)
 
-        # 1. Checklist
-        self.sub_checklist = ValidationChecklistSubTab(self.notebook)
-        self.notebook.add(self.sub_checklist, text="✅ Checklist Estatístico")
+        # Initialize subtabs with controller
+        self.sub_checklist = ValidationChecklist(self.notebook, self.controller)
+        self.sub_precision = ValidationPrecision(self.notebook, self.controller)
+        self.sub_scoring = ValidationScoring(self.notebook, self.controller)
 
-        # 2. Scoring (Enquadramento)
-        self.sub_scoring = ValidationScoringSubTab(self.notebook)
-        self.notebook.add(self.sub_scoring, text="🏆 Enquadramento (Graus)")
+        # Add to notebook
+        self.notebook.add(self.sub_checklist, text="Checklist NBR")
+        self.notebook.add(self.sub_precision, text="Precisão e Intervalo")
+        self.notebook.add(self.sub_scoring, text="Pontuação e Graus")
 
-        # 3. Precision (Fronteiras)
-        self.sub_precision = ValidationPrecisionSubTab(self.notebook)
-        self.notebook.add(self.sub_precision, text="🎯 Precisão & Fronteiras")
-
-    def update_all(self, stats, validator_report):
-        """Updates all sub-tabs at once."""
-        # 1. Checklist
-        self.sub_checklist.update_data(validator_report)
+    def update_all(self, stats, report):
+        """Called by StatsController after regression"""
+        if hasattr(self.sub_checklist, 'update_status'):
+            self.sub_checklist.update_status(report)
         
-        # 2. Scoring (Auto-fill stats based items)
-        self.sub_scoring.auto_fill_stats(stats)
-        
-        # 3. Precision (Boundaries)
-        self.sub_precision.update_boundaries(stats.get('Dados_Utilizados'))
+        if hasattr(self.sub_precision, 'update_precision'):
+            self.sub_precision.update_precision(stats)
+            
+        if hasattr(self.sub_scoring, 'update_score'):
+            self.sub_scoring.update_score(stats)

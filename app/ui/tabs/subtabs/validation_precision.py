@@ -1,130 +1,85 @@
 import tkinter as tk
 from tkinter import ttk
-from app.config import settings
 
-class ValidationPrecisionSubTab(ttk.Frame):
-    def __init__(self, parent):
+class ValidationPrecision(ttk.Frame):
+    def __init__(self, parent, controller):
         super().__init__(parent)
-        self._setup_ui()
+        self.controller = controller
+        self.setup_ui()
 
-    def _setup_ui(self):
-        fr_prec = ttk.LabelFrame(self, text="1. Grau de Precisão (Amplitude)", padding=15)
-        fr_prec.pack(fill='x', padx=10, pady=10)
-
-        self.lbl_val = ttk.Label(fr_prec, text="Valor Central: R$ 0,00", font=("Arial", 10))
-        self.lbl_val.pack(anchor='w')
+    def setup_ui(self):
+        self.columnconfigure(0, weight=1)
         
-        self.lbl_interval = ttk.Label(fr_prec, text="Intervalo: R$ 0,00 a R$ 0,00")
-        self.lbl_interval.pack(anchor='w')
-
-        self.lbl_amp = ttk.Label(fr_prec, text="Amplitude: 0.00 %", font=("Arial", 12, "bold"), foreground="blue")
-        self.lbl_amp.pack(anchor='w', pady=5)
+        # --- 1. Intervalo de Confiança (Confidence Interval) ---
+        fr_ci = ttk.LabelFrame(self, text="Intervalo de Confiança (80%)")
+        fr_ci.pack(fill="x", padx=10, pady=5)
         
-        self.lbl_grade = ttk.Label(fr_prec, text="Classificação: Aguardando Cálculo...", font=("Arial", 11, "bold"))
-        self.lbl_grade.pack(anchor='w', pady=5)
+        # Labels for display
+        self.lbl_min = ttk.Label(fr_ci, text="Mínimo: -", font=("Segoe UI", 10))
+        self.lbl_min.pack(side="left", padx=10, pady=5)
         
-        g3 = settings.GRADE_III_LIMIT
-        g2 = settings.GRADE_II_LIMIT
-        ttk.Label(fr_prec, text=f"Regra NBR 14.653-2:\n• Grau III: Amplitude ≤ {g3}%\n• Grau II: Amplitude ≤ {g2}%\n• Grau I: Amplitude > {g2}%", font=("Arial", 9), foreground="gray", justify='left').pack(anchor='w', pady=5)
-
-        fr_extra = ttk.LabelFrame(self, text="2. Verificação de Fronteiras (Extrapolação)", padding=15)
-        fr_extra.pack(fill='both', expand=True, padx=10, pady=10)
-
-        ttk.Label(fr_extra, text="Limites da Amostra (Onde seu modelo é seguro):").pack(anchor='w', pady=(0, 10))
-
-        cols = ("Variável", "Mínimo Amostra", "Máximo Amostra", "Seu Imóvel", "Status")
-        self.tree = ttk.Treeview(fr_extra, columns=cols, show="headings", height=8)
+        self.lbl_central = ttk.Label(fr_ci, text="Central: -", font=("Segoe UI", 10, "bold"))
+        self.lbl_central.pack(side="left", padx=10, pady=5)
         
-        widths = [120, 100, 100, 100, 150]
-        for c, w in zip(cols, widths):
-            self.tree.heading(c, text=c)
-            self.tree.column(c, width=w, anchor="center")
-            
-        self.tree.pack(fill='both', expand=True)
+        self.lbl_max = ttk.Label(fr_ci, text="Máximo: -", font=("Segoe UI", 10))
+        self.lbl_max.pack(side="left", padx=10, pady=5)
         
-        self.tree.tag_configure("OK", foreground="green")
-        self.tree.tag_configure("EXTRAPOLA", foreground="red")
+        self.lbl_amplitude = ttk.Label(fr_ci, text="Amplitude: -", foreground="blue")
+        self.lbl_amplitude.pack(side="right", padx=10)
 
-    def update_precision(self, result_dict):
-        if not result_dict: return 0.0
-
-        central = result_dict['Valor_Central']
-        min_c = result_dict['IC_Min']
-        max_c = result_dict['IC_Max']
+        # --- 2. Grau de Precisão (Precision Degree) ---
+        fr_degree = ttk.LabelFrame(self, text="Grau de Precisão (NBR 14.653-2)")
+        fr_degree.pack(fill="x", padx=10, pady=5)
         
-        amplitude = (max_c - min_c) / central
-        amp_perc = amplitude * 100
+        self.lbl_degree = ttk.Label(fr_degree, text="AGUARDANDO CÁLCULO", font=("Segoe UI", 12, "bold"), foreground="gray")
+        self.lbl_degree.pack(pady=10)
+        
+        # Explanation table
+        fr_table = ttk.Frame(fr_degree)
+        fr_table.pack(fill="x", padx=10, pady=5)
+        
+        # Simple static table for reference
+        ttk.Label(fr_table, text="Grau I: Amplitude ≤ 50%").grid(row=0, column=0, sticky="w")
+        ttk.Label(fr_table, text="Grau II: Amplitude ≤ 40%").grid(row=1, column=0, sticky="w")
+        ttk.Label(fr_table, text="Grau III: Amplitude ≤ 30%").grid(row=2, column=0, sticky="w")
 
-        conf = int(settings.STATS_CONFIDENCE_LEVEL * 100)
-        self.lbl_val.config(text=f"Valor Central: R$ {central:,.2f}")
-        self.lbl_interval.config(text=f"Intervalo ({conf}%): R$ {min_c:,.2f} a R$ {max_c:,.2f}")
-        self.lbl_amp.config(text=f"Amplitude: {amp_perc:.2f} %")
+    def update_precision(self, stats):
+        """
+        Updates the UI with statistical results.
+        Expected stats keys: 'IC_Min', 'Valor_Central', 'IC_Max' (or similar from StatsEngine)
+        """
+        if not stats: return
 
-        if amp_perc <= settings.GRADE_III_LIMIT:
-            grade = "Grau III (Excelente)"
+        # Extract values (handling both possible key naming conventions)
+        val_central = stats.get('Valor_Central') or stats.get('valor_central', 0)
+        val_min = stats.get('IC_Min') or stats.get('ic_min', 0)
+        val_max = stats.get('IC_Max') or stats.get('ic_max', 0)
+        
+        if val_central == 0: return
+
+        # Calculate Amplitude: (Max - Min) / Central
+        amplitude = ((val_max - val_min) / val_central) * 100
+        
+        # Determine Degree
+        if amplitude <= 30:
+            degree = "GRAU III (Elevada Precisão)"
             color = "green"
-        elif amp_perc <= settings.GRADE_II_LIMIT:
-            grade = "Grau II (Satisfatório)"
-            color = "#D4AC0D"
+        elif amplitude <= 40:
+            degree = "GRAU II (Média Precisão)"
+            color = "#ffd700" # Gold
+        elif amplitude <= 50:
+            degree = "GRAU I (Baixa Precisão)"
+            color = "orange"
         else:
-            grade = "Grau I (Baixa Precisão)"
+            degree = "FORA DOS CRITÉRIOS (> 50%)"
             color = "red"
-            
-        self.lbl_grade.config(text=f"Classificação: {grade}", foreground=color)
+
+        # Update Labels
+        self.lbl_min.config(text=f"Mínimo: R$ {val_min:,.2f}")
+        self.lbl_central.config(text=f"Central: R$ {val_central:,.2f}")
+        self.lbl_max.config(text=f"Máximo: R$ {val_max:,.2f}")
+        self.lbl_amplitude.config(text=f"Amplitude Total: {amplitude:.2f}%")
         
-        return amp_perc
-
-    def update_boundaries(self, df_used, input_vars=None):
-        if df_used is None: return
-        self.tree.delete(*self.tree.get_children())
-        for col in df_used.columns:
-            if col == 'const': continue
-            
-            # Use raw column name for display
-            display_col = col.replace("Ln_", "").replace("Inv_", "").replace("Quad_", "").replace("Raiz_", "")
-            
-            # Need to match input vars which use display_name
-            # If input_vars uses display_name, we must map col back to it
-            
-            min_v = df_used[col].min()
-            max_v = df_used[col].max()
-            
-            val_str = "-"
-            status = "Aguardando Input"
-            tag = "OK"
-
-            if input_vars:
-                # Check using display_name in input_vars
-                if display_col in input_vars:
-                    val_imovel = input_vars[display_col]
-                    
-                    # BUT WAIT: Extrapolation check must be done on the TRANSFORMED value if the model used it?
-                    # No, NBR says extrapolation check is on the observed variable range.
-                    # If model used Ln_Area, we check if Ln(200) is inside [Ln(min), Ln(max)].
-                    # Since df_used contains transformed data (e.g. Ln_Area), and input_vars contains RAW data (200),
-                    # we must transform the input before comparing, OR untransform min/max.
-                    
-                    # Safer: Untransform the Limits for display if possible, or Transform input.
-                    # Since we don't know the exact transform function here easily without replicating logic,
-                    # let's assume 'df_used' passed here is the RAW data from 'Dados_Utilizados' in StatsEngine return.
-                    # StatsEngine 'Dados_Utilizados' returns the CLEANED RAW data. Correct.
-                    
-                    # So df_used[col] is raw data.
-                    val_str = f"{val_imovel:,.2f}"
-                    
-                    if val_imovel < min_v:
-                        status = "Extrapola (Inferior)"
-                        tag = "EXTRAPOLA"
-                    elif val_imovel > max_v:
-                        status = "Extrapola (Superior)"
-                        tag = "EXTRAPOLA"
-                    else:
-                        status = "OK (Dentro)"
-            
-            self.tree.insert("", "end", values=(
-                display_col, 
-                f"{min_v:,.2f}", 
-                f"{max_v:,.2f}",
-                val_str,
-                status
-            ), tags=(tag,))
+        self.lbl_degree.config(text=degree, foreground=color)
+        
+        return amplitude # Return for other modules if needed

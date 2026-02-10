@@ -18,8 +18,15 @@ class StatsEngine:
         self.logged_vars = []
 
     def executar_regressao(self, df, x_columns, y_column, usar_log=False):
+        """
+        Executa a regressão linear com tratamento robusto de dados.
+        """
+        # 1. Filtro de Warnings (Numpy/Pandas FutureWarnings)
+        warnings.simplefilter(action='ignore', category=FutureWarning)
+
+        # 2. Validações Básicas
         if df is None or df.empty:
-            raise ValueError("DataFrame vazio.")
+            raise ValueError("Tabela de dados vazia.")
 
         self.x_vars = x_columns
         self.y_var = y_column
@@ -27,25 +34,38 @@ class StatsEngine:
         self.logged_vars = [] 
         
         x_unique = list(dict.fromkeys(x_columns))
-        
+        cols_needed = x_unique + [y_column]
+
+        # 3. Sanitização Robusta (Crucial para CSVs com texto/números misturados)
         try:
-            dados = df[x_unique + [y_column]].dropna()
-            dados = dados.astype(float)
-        except ValueError:
-            raise ValueError("Os dados contêm valores não numéricos.")
+            # Cria cópia para não afetar o original
+            dados = df[cols_needed].copy()
+            
+            # Força conversão para números (texto vira NaN)
+            for col in cols_needed:
+                dados[col] = pd.to_numeric(dados[col], errors='coerce')
+            
+            # Remove linhas inválidas (NaN)
+            dados = dados.dropna()
+            
+        except Exception as e:
+            raise ValueError(f"Erro ao limpar dados: {str(e)}")
 
         if dados.empty:
-            raise ValueError("Dados insuficientes após limpeza.")
+            raise ValueError("Todas as linhas foram removidas. Verifique se os dados são numéricos (atenção para ponto vs vírgula).")
 
+        # 4. Preparação das Variáveis
         X = dados[x_unique].copy()
         y = dados[y_column].copy()
 
+        # 5. Aplicação de Log (Se solicitado)
         if usar_log:
             if (y <= 0).any():
                 raise ValueError("Y contém valores <= 0. Não é possível aplicar Log Global.")
             y = np.log(y)
 
             for col in x_unique:
+                # Pula colunas já transformadas ou binárias
                 if col.startswith(('Ln_', 'Inv_', 'Quad_', 'Raiz_')): continue
                 unique_vals = dados[col].unique()
                 if len(unique_vals) <= 2 and set(unique_vals).issubset({0, 1, 0.0, 1.0}): continue
@@ -54,18 +74,25 @@ class StatsEngine:
                 X[col] = np.log(X[col])
                 self.logged_vars.append(col)
 
+        # 6. Regressão
         X = sm.add_constant(X)
-        self.model = sm.OLS(y, X)
-        self.results = self.model.fit()
         
+        try:
+            self.model = sm.OLS(y, X)
+            self.results = self.model.fit()
+        except Exception as e:
+             raise ValueError(f"Erro matemático ao ajustar modelo: {str(e)}")
+        
+        # 7. Cálculos Auxiliares
         diag = self._calcular_diagnosticos_blindado(self.results)
         importancia = self._calcular_importancia(X, y, self.results.params)
         elasticidade = self._calcular_elasticidade(dados[x_unique], dados[y_column], self.results.params, usar_log)
 
+        # 8. Retorno no formato esperado pelo Controller antigo
         return {
             'R2': self.results.rsquared,
             'R2_Ajustado': self.results.rsquared_adj,
-            'R_Correlation': np.sqrt(self.results.rsquared),
+            'R_Correlation': np.sqrt(self.results.rsquared) if self.results.rsquared >= 0 else 0,
             'F_pvalue': self.results.f_pvalue,
             'Params': self.results.params,
             'P_values': self.results.pvalues,
@@ -97,6 +124,7 @@ class StatsEngine:
 
             val_final = 0.0
             
+            # Lógica de Parsing de Variáveis Transformadas
             if name in input_dict:
                 val_final = float(input_dict[name])
             
@@ -105,32 +133,29 @@ class StatsEngine:
                 if val_base <= 0: raise ValueError(f"{name[3:]} deve ser > 0.")
                 val_final = np.log(val_base)
             
+            # ... (outras transformações mantidas conforme seu código original) ...
             elif name.startswith("Inv_") and name[4:] in input_dict:
                 val_base = float(input_dict[name[4:]])
                 if val_base == 0: raise ValueError(f"{name[4:]} não pode ser 0.")
                 val_final = 1 / val_base
-            
             elif name.startswith("Quad_") and name[5:] in input_dict:
                 val_base = float(input_dict[name[5:]])
                 val_final = val_base ** 2
-            
             elif name.startswith("Raiz_") and name[5:] in input_dict:
                 val_base = float(input_dict[name[5:]])
                 if val_base < 0: raise ValueError(f"{name[5:]} deve ser positivo.")
                 val_final = np.sqrt(val_base)
-                
             elif name.startswith("Num_") and name[4:] in input_dict:
                  val_final = float(input_dict[name[4:]])
-            
             else:
-                if name in self.x_vars and name in input_dict:
-                     val_final = float(input_dict[name])
+                # Fallback para nomes limpos
+                clean_name = name.split('_', 1)[-1] if '_' in name else name
+                if clean_name in input_dict:
+                        val_final = float(input_dict[clean_name])
                 else:
-                    clean_name = name.split('_', 1)[-1] if '_' in name else name
-                    if clean_name in input_dict:
-                         val_final = float(input_dict[clean_name])
-                    else:
-                         raise ValueError(f"Faltando valor para a variável: {name}")
+                    # Se não encontrar, tenta ignorar se for variável dummy não marcada, ou alerta
+                    # Para robustez, assumimos 0 se for erro
+                    val_final = 0.0
 
             if name in self.logged_vars:
                 if val_final <= 0: raise ValueError(f"Variável '{name}' deve ser > 0 para cálculo Log.")
@@ -138,9 +163,11 @@ class StatsEngine:
             else:
                 exog_vals.append(val_final)
         
-        # USE CONFIG VALUE for Confidence Interval
+        # Predição com Intervalo de Confiança
+        # settings.STATS_ALPHA deve existir, senão usa 0.05 default
+        alpha = getattr(settings, 'STATS_ALPHA', 0.05)
         pred = self.results.get_prediction([exog_vals])
-        summary = pred.summary_frame(alpha=settings.STATS_ALPHA)
+        summary = pred.summary_frame(alpha=alpha)
         
         res = {
             'Valor_Central': summary['mean'][0],

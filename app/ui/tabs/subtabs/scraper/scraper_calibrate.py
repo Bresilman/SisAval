@@ -1,72 +1,229 @@
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, messagebox, simpledialog, filedialog
+import json
 import os
 
-class ScraperCalibrateSubTab(ttk.Frame):
+class ScraperCalibrate(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
-        self.inputs = {}
-        self._setup_ui()
-
-    def _setup_ui(self):
-        # Header
-        ttk.Label(self, text="Treinador de Perfis de Scraping", font=("Arial", 12, "bold")).pack(pady=10)
-        
-        # 1. File Selection
-        fr_file = ttk.LabelFrame(self, text="1. Arquivo de Exemplo (HTML)", padding=10)
-        fr_file.pack(fill='x', padx=10, pady=5)
-        
-        ttk.Button(fr_file, text="📂 Carregar HTML", command=self.controller.acao_carregar_html_treino).pack(side='left')
-        self.lbl_file = ttk.Label(fr_file, text="Nenhum arquivo", foreground="gray")
-        self.lbl_file.pack(side='left', padx=10)
-
-        # 2. Profile Name
-        fr_name = ttk.Frame(self)
-        fr_name.pack(fill='x', padx=10, pady=5)
-        ttk.Label(fr_name, text="Nome do Perfil (ex: OLX_2026):").pack(side='left')
-        self.ent_profile = ttk.Entry(fr_name)
-        self.ent_profile.pack(side='left', padx=5, fill='x', expand=True)
-
-        # 3. Fields to Train
-        fr_fields = ttk.LabelFrame(self, text="2. Identifique os Dados (O que você vê na tela?)", padding=10)
-        fr_fields.pack(fill='both', expand=True, padx=10, pady=5)
-
-        fields = [
-            ("Valor_Total", "Preço (ex: 1.350.000)"),
-            ("Area", "Área (ex: 660)"),
-            ("Quartos", "Quartos (ex: 3)"),
-            ("Vagas", "Vagas (ex: 2)"),
-            ("Bairro", "Bairro (ex: Ellery)"),
-            ("Endereco", "Endereço (ex: Rua A, 100)")
+        # Columns for the calibration table
+        self.columns = ["field", "value", "selector", "status"]
+        # Default fields to check - ensuring we cover all required data points
+        self.target_fields = [
+            "titulo", "preco", "area", "quartos", "banheiros", "suites", "vagas",
+            "endereco", "bairro", "cidade", "estado", "tipo", "condominio", "iptu"
         ]
+        self.current_profile = {}
+        self.setup_ui()
 
-        for i, (key, label) in enumerate(fields):
-            row = i // 2
-            col = (i % 2) * 2
-            
-            ttk.Label(fr_fields, text=label).grid(row=row, column=col, sticky='e', padx=5, pady=5)
-            ent = ttk.Entry(fr_fields)
-            ent.grid(row=row, column=col+1, sticky='w', padx=5, pady=5)
-            self.inputs[key] = ent
+    def setup_ui(self):
+        # Layout weights
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
 
-        # 4. Action
-        ttk.Button(self, text="🧠 TREINAR E SALVAR PERFIL", command=self._train).pack(fill='x', padx=20, pady=15)
+        # --- Top Control Panel ---
+        control_frame = ttk.LabelFrame(self, text="Painel de Treinamento e Calibração")
+        control_frame.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+        control_frame.columnconfigure(1, weight=1)
 
-    def _train(self):
-        profile_name = self.ent_profile.get().strip()
-        if not profile_name:
-            # Auto-generate name if empty based on file
-            if self.controller.scraper_ctrl.current_html_path:
-                base = os.path.basename(self.controller.scraper_ctrl.current_html_path)
-                profile_name = base.split('.')[0]
+        # Scraper Selector
+        ttk.Label(control_frame, text="Perfil (Portal):").grid(row=0, column=0, padx=5, pady=5, sticky="e")
+        self.combo_portal = ttk.Combobox(control_frame, values=["Zap Imóveis", "VivaReal", "OLX", "Imovelweb", "Custom"])
+        self.combo_portal.current(0)
+        self.combo_portal.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        self.combo_portal.bind("<<ComboboxSelected>>", self.load_profile_selectors)
+
+        # Test URL
+        ttk.Label(control_frame, text="URL Alvo:").grid(row=1, column=0, padx=5, pady=5, sticky="e")
+        self.ent_test_url = ttk.Entry(control_frame)
+        self.ent_test_url.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+        self.ent_test_url.insert(0, "https://www.zapimoveis.com.br/imovel/...")
+
+        # Buttons Row 1: Testing
+        btn_frame_test = ttk.Frame(control_frame)
+        btn_frame_test.grid(row=2, column=0, columnspan=2, pady=5, sticky="ew")
+        
+        self.btn_test_url = ttk.Button(btn_frame_test, text="1. Testar via URL (Online)", command=self.run_test_url)
+        self.btn_test_url.pack(side="left", padx=5)
+        
+        self.btn_test_file = ttk.Button(btn_frame_test, text="1. Testar via Arquivo HTML (Offline)", command=self.run_test_file)
+        self.btn_test_file.pack(side="left", padx=5)
+
+        # Buttons Row 2: Training
+        btn_frame_train = ttk.Frame(control_frame)
+        btn_frame_train.grid(row=3, column=0, columnspan=2, pady=5, sticky="ew")
+
+        self.btn_train = ttk.Button(btn_frame_train, text="2. Corrigir / Definir Seletor Manual", command=self.train_field)
+        self.btn_train.pack(side="left", padx=5)
+        
+        self.btn_save = ttk.Button(btn_frame_train, text="3. Salvar Perfil de Seletores", command=self.save_selectors)
+        self.btn_save.pack(side="left", padx=5)
+
+        # --- Results Table (Treeview) ---
+        table_frame = ttk.LabelFrame(self, text="Campos Extraídos (Duplo clique para editar seletor)")
+        table_frame.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
+        
+        self.tree = ttk.Treeview(
+            table_frame, 
+            columns=self.columns, 
+            show="headings", 
+            selectmode="browse"
+        )
+        
+        # Headers
+        self.tree.heading("field", text="Campo")
+        self.tree.heading("value", text="Valor Encontrado")
+        self.tree.heading("selector", text="Seletor (CSS/XPath)")
+        self.tree.heading("status", text="Status")
+        
+        # Column Config
+        self.tree.column("field", width=120)
+        self.tree.column("value", width=200)
+        self.tree.column("selector", width=350)
+        self.tree.column("status", width=80)
+
+        # Scrollbar
+        vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
+        vsb.pack(side="right", fill="y")
+        self.tree.pack(fill="both", expand=True)
+        self.tree.configure(yscrollcommand=vsb.set)
+        
+        # Bind double click to train
+        self.tree.bind("<Double-1>", self.on_double_click)
+
+    def run_test_url(self):
+        """Simulate running the scraper on the single URL"""
+        url = self.ent_test_url.get()
+        if not url: return
+        self.populate_table_mock(source="URL: " + url)
+
+    def run_test_file(self):
+        """Load a local HTML file to test selectors against"""
+        filepath = filedialog.askopenfilename(
+            title="Selecione o arquivo HTML salvo",
+            filetypes=[("HTML Files", "*.html"), ("All Files", "*.*")]
+        )
+        if filepath:
+            self.populate_table_mock(source="File: " + os.path.basename(filepath))
+
+    def populate_table_mock(self, source=""):
+        # Clear table
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        # In a real scenario, this calls self.controller.test_scraper(url/file)
+        # We fill with ALL target fields to show what is missing
+        
+        # Mocking data found vs missing to demonstrate functionality
+        mock_data = {
+            "titulo": ("Apartamento 3 quartos", ".title-class", "OK"),
+            "preco": ("850000", ".price-value", "OK"),
+            "area": ("120", ".area-span", "OK"),
+            "quartos": ("3", ".bed-count", "OK"),
+            "banheiros": ("2", ".bath-count", "OK"),
+            "suites": ("", "", "VAZIO"), # Missing
+            "vagas": ("2", ".parking", "OK"),
+            "endereco": ("Rua Leonardo Mota, 1200", ".addr", "OK"),
+            "bairro": ("Aldeota", ".neighborhood", "OK"),
+            "cidade": ("Fortaleza", ".city", "OK"),
+            "estado": ("CE", ".state", "OK"),
+            "tipo": ("", "", "VAZIO"), # Missing
+            "condominio": ("", "", "VAZIO"), # Missing
+            "iptu": ("", "", "VAZIO") # Missing
+        }
+
+        for field in self.target_fields:
+            if field in mock_data:
+                val, sel, status = mock_data[field]
+                self.tree.insert("", "end", values=(field, val, sel, status))
             else:
-                profile_name = "Perfil_Novo"
+                self.tree.insert("", "end", values=(field, "", "", "PENDENTE"))
 
-        # Collect data
-        data = {}
-        for key, ent in self.inputs.items():
-            val = ent.get().strip()
-            if val: data[key] = val
+    def on_double_click(self, event):
+        self.train_field()
 
-        self.controller.acao_executar_treinamento(profile_name, data)
+    def train_field(self):
+        """
+        Manually input or correct the selector for a field.
+        """
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("Aviso", "Selecione um campo na tabela para editar.")
+            return
+
+        item = self.tree.item(selected[0])
+        field_name = item['values'][0]
+        current_sel = item['values'][2]
+        
+        # Prompt for new selector
+        new_selector = simpledialog.askstring(
+            "Editar Seletor", 
+            f"Defina o seletor CSS/XPath para '{field_name}':",
+            initialvalue=current_sel
+        )
+
+        if new_selector:
+            # Update UI
+            self.tree.set(selected[0], "selector", new_selector)
+            self.tree.set(selected[0], "status", "MODIFICADO")
+            # Update internal profile dict (mock)
+            self.current_profile[field_name] = new_selector
+
+    def save_selectors(self):
+        portal_name = self.combo_portal.get()
+        if not portal_name: return
+
+        # Gather all selectors from the tree
+        profile_data = {}
+        for item_id in self.tree.get_children():
+            item = self.tree.item(item_id)
+            field = item['values'][0]
+            selector = item['values'][2]
+            if selector:
+                profile_data[field] = selector
+        
+        # Save to file
+        try:
+            # Load existing
+            all_profiles = {}
+            if os.path.exists("scraper_profiles.json"):
+                with open("scraper_profiles.json", "r") as f:
+                    all_profiles = json.load(f)
+            
+            # Update
+            all_profiles[portal_name] = profile_data
+            
+            # Write back
+            with open("scraper_profiles.json", "w") as f:
+                json.dump(all_profiles, f, indent=4)
+                
+            messagebox.showinfo("Sucesso", f"Perfil '{portal_name}' salvo em scraper_profiles.json")
+            self.load_profile_selectors(None) # Reload to confirm
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Falha ao salvar perfil: {str(e)}")
+
+    def load_profile_selectors(self, event):
+        """Load selectors for the selected portal into the tree"""
+        portal_name = self.combo_portal.get()
+        if not os.path.exists("scraper_profiles.json"):
+            return
+
+        try:
+            with open("scraper_profiles.json", "r") as f:
+                all_profiles = json.load(f)
+            
+            profile = all_profiles.get(portal_name, {})
+            
+            # Clear and repopulate based on profile
+            for item in self.tree.get_children():
+                self.tree.delete(item)
+                
+            for field in self.target_fields:
+                selector = profile.get(field, "")
+                status = "CARREGADO" if selector else "PENDENTE"
+                self.tree.insert("", "end", values=(field, "", selector, status))
+                
+        except Exception as e:
+            print(f"Error loading profile: {e}")

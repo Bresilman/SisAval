@@ -1,47 +1,30 @@
 import tkinter as tk
 from tkinter import ttk
 
-class DataDescSubTab(ttk.Frame):
-    def __init__(self, parent):
+class DataDesc(ttk.Frame):
+    def __init__(self, parent, controller):
         super().__init__(parent)
-        self._setup_ui()
+        self.controller = controller
+        self.setup_ui()
 
-    def _setup_ui(self):
-        cols = ("Variável", "N (Contagem)", "Média", "Desvio Padrão", "Mínimo", "Máximo", "CV (%)")
-        self.tree = ttk.Treeview(self, columns=cols, show='headings')
+    def setup_ui(self):
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
         
-        for c in cols:
-            self.tree.heading(c, text=c)
-            width = 100 if c != "Variável" else 150
-            self.tree.column(c, width=width, anchor='center')
-            
-        self.tree.pack(fill='both', expand=True, side='left')
-        
-        sb = ttk.Scrollbar(self, command=self.tree.yview)
-        sb.pack(side='right', fill='y')
-        self.tree.configure(yscrollcommand=sb.set)
+        self.txt_stats = tk.Text(self, font=("Consolas", 10))
+        self.txt_stats.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
-    def calculate_desc(self, df, numeric_cols):
-        self.tree.delete(*self.tree.get_children())
-        for c in numeric_cols:
-            try:
-                s = df[c]
-                count = s.count()
-                mean = s.mean()
-                std = s.std()
-                min_v = s.min()
-                max_v = s.max()
-                cv = (std / mean * 100) if mean != 0 else 0
-                
-                vals = (
-                    c, 
-                    int(count), 
-                    f"{mean:.2f}", 
-                    f"{std:.2f}", 
-                    f"{min_v:.2f}", 
-                    f"{max_v:.2f}", 
-                    f"{cv:.2f}%"
-                )
-                self.tree.insert("", "end", values=vals)
-            except:
-                pass
+    def refresh_view(self):
+        dh = getattr(self.controller, 'data_handler', None)
+        if not dh: return
+        
+        df = dh.get_data()
+        if df is None: return
+        
+        # Calculate describe
+        try:
+            desc = df.describe().to_string()
+            self.txt_stats.delete(1.0, tk.END)
+            self.txt_stats.insert(tk.END, desc)
+        except:
+            self.txt_stats.insert(tk.END, "Não foi possível calcular estatísticas (verifique dados numéricos).")

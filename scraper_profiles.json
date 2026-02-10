@@ -1,0 +1,14 @@
+{
+    "Zap Im\u00f3veis": {
+        "titulo": ".title-class",
+        "preco": ".price-value",
+        "area": ".area-span",
+        "quartos": ".bed-count",
+        "banheiros": ".bath-count",
+        "vagas": ".parking",
+        "endereco": ".addr",
+        "bairro": ".neighborhood",
+        "cidade": ".city",
+        "estado": ".state"
+    }
+}

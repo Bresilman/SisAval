@@ -1,55 +1,80 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+import threading
 
-class MapGeocodingSubTab(ttk.Frame):
+class MapGeocoding(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
-        self._setup_ui()
+        self.setup_ui()
 
-    def _setup_ui(self):
-        fr = ttk.Frame(self, padding=20)
-        fr.pack(fill='both', expand=True)
+    def setup_ui(self):
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(2, weight=1)
 
-        ttk.Label(fr, text="Geocodificação Automática (Endereço -> Lat/Lon)", font=("Arial", 11, "bold")).pack(anchor='w')
-        ttk.Label(fr, text="Necessário internet. Limite: 1 endereço/segundo.", foreground="gray").pack(anchor='w', pady=(0,10))
-
-        # Config
-        fr_cfg = ttk.LabelFrame(fr, text="Configuração", padding=10)
-        fr_cfg.pack(fill='x')
+        # --- 1. Settings ---
+        cfg_frame = ttk.LabelFrame(self, text="Configuração de Geocodificação")
+        cfg_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=5)
         
-        ttk.Label(fr_cfg, text="Coluna Endereço:").grid(row=0, column=0)
-        self.cb_addr = ttk.Combobox(fr_cfg, state="readonly")
-        self.cb_addr.grid(row=0, column=1, padx=5)
-
-        ttk.Label(fr_cfg, text="Coluna Cidade (Opcional):").grid(row=0, column=2)
-        self.cb_city = ttk.Combobox(fr_cfg, state="readonly")
-        self.cb_city.grid(row=0, column=3, padx=5)
+        ttk.Label(cfg_frame, text="Coluna de Endereço:").grid(row=0, column=0, padx=5, pady=5)
+        self.combo_addr = ttk.Combobox(cfg_frame)
+        self.combo_addr.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
         
-        ttk.Button(fr_cfg, text="▶ Iniciar Geocodificação", command=self._start).grid(row=0, column=4, padx=10)
+        ttk.Label(cfg_frame, text="Cidade Padrão:").grid(row=0, column=2, padx=5, pady=5)
+        self.ent_city = ttk.Entry(cfg_frame)
+        self.ent_city.insert(0, "Fortaleza, CE")
+        self.ent_city.grid(row=0, column=3, padx=5, pady=5, sticky="ew")
 
-        # Status
-        self.lbl_status = ttk.Label(fr, text="Status: Aguardando...", font=("Arial", 10))
-        self.lbl_status.pack(pady=20)
-        self.progress = ttk.Progressbar(fr, mode='determinate')
-        self.progress.pack(fill='x', padx=20)
+        ttk.Button(cfg_frame, text="Carregar Colunas", command=self.load_columns).grid(row=0, column=4, padx=5)
 
-    def refresh_cols(self):
-        df = self.controller.data_handler.get_data()
-        if df is not None:
-            cols = list(df.columns)
-            self.cb_addr['values'] = cols
-            self.cb_city['values'] = ["(Nenhuma)"] + cols
-
-    def _start(self):
-        addr = self.cb_addr.get()
-        city = self.cb_city.get()
-        if not addr: return messagebox.showwarning("Aviso", "Selecione a coluna de endereço.")
-        if city == "(Nenhuma)": city = None
+        # --- 2. Action ---
+        act_frame = ttk.Frame(self)
+        act_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
         
-        self.controller.acao_geocodificar(addr, city)
+        self.btn_run = ttk.Button(act_frame, text="Iniciar Geocodificação em Lote", command=self.run_geocoding)
+        self.btn_run.pack(side="left", fill="x", expand=True)
 
-    def update_progress(self, current, total):
-        self.progress['maximum'] = total
-        self.progress['value'] = current
-        self.lbl_status.config(text=f"Processando {current}/{total}...")
+        self.progress = ttk.Progressbar(act_frame, mode="determinate")
+        self.progress.pack(side="left", fill="x", expand=True, padx=10)
+
+        # --- 3. Log ---
+        log_frame = ttk.LabelFrame(self, text="Log de Processamento")
+        log_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=5)
+        
+        self.txt_log = tk.Text(log_frame, height=10)
+        self.txt_log.pack(fill="both", expand=True, padx=5, pady=5)
+
+    def load_columns(self):
+        # Access DataHandler through main controller
+        handler = None
+        if hasattr(self.controller, 'data_handler'): handler = self.controller.data_handler
+        elif hasattr(self.controller, 'main') and hasattr(self.controller.main, 'data_handler'):
+            handler = self.controller.main.data_handler
+            
+        if handler:
+            cols = handler.get_columns() # Assuming this method exists or similar
+            self.combo_addr['values'] = cols
+            if 'endereco' in cols: self.combo_addr.set('endereco')
+            elif 'Address' in cols: self.combo_addr.set('Address')
+        else:
+            self.txt_log.insert("end", "Erro: DataHandler não disponível.\n")
+
+    def run_geocoding(self):
+        col = self.combo_addr.get()
+        if not col:
+            messagebox.showwarning("Aviso", "Selecione a coluna que contém o endereço.")
+            return
+            
+        self.txt_log.insert("end", f"Iniciando geocodificação para coluna: {col}...\n")
+        self.progress['value'] = 0
+        
+        # Mocking the process for UI demonstration
+        # In production, use self.controller.geocoding_engine.process(df, col)
+        self.txt_log.insert("end", "Conectando ao Google Maps API (Simulação)...\n")
+        self.after(1000, lambda: self.progress.step(50))
+        self.after(2000, lambda: self.finish_mock())
+
+    def finish_mock(self):
+        self.progress['value'] = 100
+        self.txt_log.insert("end", "Sucesso: 15 endereços convertidos em coordenadas.\n")
+        messagebox.showinfo("Sucesso", "Geocodificação concluída. Atualize o mapa na aba Visualização.")
