@@ -1,10 +1,26 @@
-APP_TITLE = "SisAval - Avaliação de Imóveis (NBR 14.653)"
-APP_SIZE = "1280x800"
+import os
 
-# Colors
-COLOR_OK = "#d4edda"
-COLOR_ALERTA = "#fff3cd"
-COLOR_ERRO = "#f8d7da"
+# --- Identificação do Sistema ---
+APP_NAME = "SisAval"
+APP_VERSION = "2.0.0 (Analista)"
+
+# --- Caminhos do Sistema ---
+# Base dir é a pasta raiz (onde está run_analyzer.py)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+CACHE_DIR = os.path.join(BASE_DIR, "cache")
+
+# --- Configurações de Interface ---
+THEME_MODE = "System"  # Opções: "System", "Dark", "Light"
+COLOR_THEME = "blue"   # Opções: "blue", "green", "dark-blue"
+
+# --- Configurações Estatísticas (Padrão NBR 14.653) ---
+DEFAULT_CONFIDENCE = 0.80  # 80% de Confiança
+DEFAULT_TOLERANCE = 0.15   # 15% de Campo de Arbítrio
+
+# Garante que as pastas essenciais existam
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(CACHE_DIR, exist_ok=True)
 
 # Optimizer Settings
 # Controls the maximum number of variables combined in Brute Force search.

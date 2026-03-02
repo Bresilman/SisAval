@@ -1,20 +1,30 @@
-import tkinter as tk
-from tkinter import ttk
-from app.ui.tabs.subtabs.factors.factors_setup import FactorsSetupSubTab
-from app.ui.tabs.subtabs.factors.factors_grid import FactorsGridSubTab
+import customtkinter as ctk
 
-class FactorsTab(ttk.Frame):
+class TabFactors(ctk.CTkFrame):
+    """
+    Aba para Homogeneização e Tratamento de Fatores.
+    (Versão Inicial Simplificada para o Módulo Analista)
+    """
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
-        self._setup_ui()
-
-    def _setup_ui(self):
-        nb = ttk.Notebook(self)
-        nb.pack(fill='both', expand=True, padx=5, pady=5)
-
-        self.sub_setup = FactorsSetupSubTab(nb)
-        nb.add(self.sub_setup, text="1. Paradigma (Referência)")
-
-        self.sub_grid = FactorsGridSubTab(nb, self.controller)
-        nb.add(self.sub_grid, text="2. Cálculo de Fatores")
+        
+        # Layout
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
+        
+        lbl_title = ctk.CTkLabel(self, text="Tratamento de Fatores (Homogeneização)", 
+                               font=ctk.CTkFont(size=16, weight="bold"))
+        lbl_title.grid(row=0, column=0, columnspan=2, pady=20)
+        
+        # Painel Informativo (Placeholder)
+        info_frame = ctk.CTkFrame(self)
+        info_frame.grid(row=1, column=0, columnspan=2, padx=20, pady=10, sticky="ew")
+        
+        lbl_info = ctk.CTkLabel(info_frame, text="Nesta etapa, você poderá aplicar fatores de depreciação,\noferta ou transposição para homogeneizar a amostra.\n\n(Funcionalidade em migração para o novo motor)",
+                              justify="center")
+        lbl_info.pack(pady=20)
+        
+        # Exemplo de Controles Futuros
+        btn_apply = ctk.CTkButton(self, text="Aplicar Fatores Padrão", state="disabled")
+        btn_apply.grid(row=2, column=0, padx=20, pady=20)

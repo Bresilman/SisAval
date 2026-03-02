@@ -1,38 +1,51 @@
-import tkinter as tk
-from tkinter import ttk
+import customtkinter as ctk
+from app.ui.tabs.subtabs.val_dashboard import ValDashboard
+from app.ui.tabs.subtabs.val_analysis import ValAnalysis
+from app.ui.tabs.subtabs.val_residuals import ValResiduals
+from app.ui.tabs.subtabs.val_precision import ValPrecision
 
-# FIX: Correct imports pointing to the actual filenames and class names (PascalCase)
-from app.ui.tabs.subtabs.validation_checklist import ValidationChecklist
-from app.ui.tabs.subtabs.validation_precision import ValidationPrecision
-from app.ui.tabs.subtabs.validation_scoring import ValidationScoring
-
-class ValidationTab(ttk.Frame):
+class TabValidation(ctk.CTkFrame):
+    """
+    Aba Container de Validação.
+    Responsabilidade: Gerenciar as sub-abas e distribuir os dados vindos do Controller.
+    """
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
-        self.setup_ui()
-
-    def setup_ui(self):
-        self.notebook = ttk.Notebook(self)
-        self.notebook.pack(fill='both', expand=True)
-
-        # Initialize subtabs with controller
-        self.sub_checklist = ValidationChecklist(self.notebook, self.controller)
-        self.sub_precision = ValidationPrecision(self.notebook, self.controller)
-        self.sub_scoring = ValidationScoring(self.notebook, self.controller)
-
-        # Add to notebook
-        self.notebook.add(self.sub_checklist, text="Checklist NBR")
-        self.notebook.add(self.sub_precision, text="Precisão e Intervalo")
-        self.notebook.add(self.sub_scoring, text="Pontuação e Graus")
-
-    def update_all(self, stats, report):
-        """Called by StatsController after regression"""
-        if hasattr(self.sub_checklist, 'update_status'):
-            self.sub_checklist.update_status(report)
         
-        if hasattr(self.sub_precision, 'update_precision'):
-            self.sub_precision.update_precision(stats)
-            
-        if hasattr(self.sub_scoring, 'update_score'):
-            self.sub_scoring.update_score(stats)
+        # Layout Principal
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        
+        # Gerenciador de Abas (TabView)
+        self.tab_view = ctk.CTkTabview(self)
+        self.tab_view.grid(row=0, column=0, sticky="nsew", padx=10, pady=5)
+        
+        # Criando as Abas
+        self.tab_view.add("🏆 Fundamentação")
+        self.tab_view.add("🔍 Análise Detalhada")
+        self.tab_view.add("⚠️ Resíduos")
+        self.tab_view.add("🎯 Precisão")
+        
+        # Instanciando as Sub-Abas (Módulos Independentes)
+        # Passamos o 'frame' interno da aba como pai
+        self.sub_dashboard = ValDashboard(self.tab_view.tab("🏆 Fundamentação"))
+        self.sub_dashboard.pack(fill="both", expand=True)
+
+        self.sub_analysis = ValAnalysis(self.tab_view.tab("🔍 Análise Detalhada"))
+        self.sub_analysis.pack(fill="both", expand=True)
+
+        self.sub_residuals = ValResiduals(self.tab_view.tab("⚠️ Resíduos"))
+        self.sub_residuals.pack(fill="both", expand=True)
+
+        self.sub_precision = ValPrecision(self.tab_view.tab("🎯 Precisão"))
+        self.sub_precision.pack(fill="both", expand=True)
+
+    def update_audit(self, audit_data):
+        """
+        Recebe o dicionário completo do NBRAuditor e distribui para os especialistas.
+        """
+        self.sub_dashboard.update_data(audit_data)
+        self.sub_analysis.update_data(audit_data)
+        self.sub_residuals.update_data(audit_data)
+        self.sub_precision.update_data(audit_data)
